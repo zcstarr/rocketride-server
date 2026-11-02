@@ -54,7 +54,13 @@ struct File {
     }
     File(const File &) = delete;
     File &operator=(const File &) = delete;
-    Entry entry() const { return Entry(Url{Text("filesys://test") + path}); }
+    Entry entry() const {
+        // A named Text binds Url(const Text &) exactly; a temporary from
+        // operator+ is ambiguous among Url's string constructors on clang.
+        Text url{"filesys://test"};
+        url += path;
+        return Entry(Url{url});
+    }
 };
 
 // Intercept the real renderer's downstream boundary without a pipeline binder
