@@ -275,6 +275,14 @@ Error IBaseSysInstance<LvlT>::renderStandardFile(ServicePipe &target,
         } else
             sizeRead = _mv(*sizeReadOr);
 
+        // A successful EOF read must not leave the remaining size unchanged.
+        if (!sizeRead) {
+            ccode = object.completionCode(
+                APERR(Ec::Read, "Unexpected end of file while rendering", osPath,
+                      "bytes remaining", size));
+            break;
+        }
+
         // Set the size of the data to write
         pDataTag->setDataSize(sizeRead);
 
@@ -286,8 +294,8 @@ Error IBaseSysInstance<LvlT>::renderStandardFile(ServicePipe &target,
         size -= sizeRead;
     }
 
-    // End the stream
-    ccode = sendTagEndStream(target);
+    // Always end the stream, preserving any earlier read or data-send error.
+    if (auto endCode = sendTagEndStream(target); !ccode) ccode = endCode;
 
 done:
     // Now, if it was the object that failed, then return the no error since
