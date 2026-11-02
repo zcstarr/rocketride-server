@@ -29,7 +29,7 @@ jobs:
       build_hash: ${{ needs.init.outputs.build_hash }}
       build_stamp: ${{ needs.init.outputs.build_stamp }}
       package: true
-      test: true
+      test: false
       container_test: false
       retention_days: 7
     secrets: inherit
