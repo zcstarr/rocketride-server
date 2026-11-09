@@ -28,8 +28,11 @@ using namespace ap::file;
 
 namespace {
 
-// Linux file system defaults for obtaining mounted file system information
-_const auto MntEntryPath = _PATH_MOUNTED;
+// Linux file system defaults for obtaining mounted file system information.
+// /etc/mtab normally links to the kernel's mount table but can be missing,
+// for example in minimal containers, so fall back to reading that table.
+_const std::array<const char *, 2> MntEntryPaths = {_PATH_MOUNTED,
+                                                     "/proc/self/mounts"};
 _const auto MntDevPrefix = "/dev/"_tv;
 _const auto MntSysBlockRemovablePrefix = "/sys/block/"_tv;
 _const auto MntSysBlockRemovablePostfix = "/removable"_tv;
@@ -42,11 +45,13 @@ namespace ap::file {
 SharedPtr<MntEntInfoCache> refreshMounting() noexcept {
     auto result = makeShared<MntEntInfoCache>();
 
-    auto file = ::setmntent(MntEntryPath, "r");
-    if (!file) {
-        LOG(File, "setmntent failed", errno);
-        return result;
+    // Use the first mount table that can be opened
+    FILE *file = nullptr;
+    for (auto path : MntEntryPaths) {
+        if ((file = ::setmntent(path, "r"))) break;
+        LOG(File, "setmntent failed", path, errno);
     }
+    if (!file) return result;
 
     while (auto mnt = ::getmntent(file)) {
         struct stat devStat{};
